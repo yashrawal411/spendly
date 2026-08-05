@@ -25,6 +25,8 @@ footer link href from "#" to "/terms".
 
 git commit -m "landing: add terms and conditions page and route”
 
+Fix the background color of terms and conditions page. It appears
+to be cream instead of our website theme.
 Do the same as you did for the Terms and Conditions page,
 but for Privacy Policy.
 
@@ -35,9 +37,9 @@ content appropriate for a personal expense tracking app.
 Include sections like: Data We Collect, How We Use Your Data,
 Data Storage, Third Party Services, and Contact Us.
 Match the style of terms.html.
-3. In @templates/landing.html, update the "Privacy Policy"
+3. In @templates/base.html, update the "Privacy Policy"
 footer link href from "#" to "/privacy".
-4. Make sure the appearance looks like the website's theme
+4. Make sure the appearance looks like the website's theme.
 
 git commit -m "landing: add privacy policy page and route”
 
