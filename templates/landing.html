@@ -21,7 +21,7 @@
         <div class="hero-divider">+</div>
         <div class="hero-actions">
             <a href="{{ url_for('register') }}" class="btn-primary">Create free account</a>
-            <a href="#features" class="btn-primary">See how it works</a>
+            <a href="#" class="btn-primary" data-open-modal>See how it works</a>
         </div>
         <div class="hero-visual">
             <div class="mock-card">
@@ -100,4 +100,70 @@
     </div>
 </section>
 
+<div class="video-modal" id="videoModal" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="video-modal-backdrop" data-close-modal></div>
+    <div class="video-modal-content">
+        <button type="button" class="video-modal-close" data-close-modal aria-label="Close video">&times;</button>
+        <div class="video-modal-frame">
+            <iframe id="videoModalFrame"
+                    src="about:blank"
+                    data-src="https://www.youtube-nocookie.com/embed/-Lt-ntUDj-g?autoplay=1&mute=1&rel=0"
+                    title="Spendly product overview"
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowfullscreen></iframe>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var modal = document.getElementById('videoModal');
+    if (!modal) return;
+
+    var frame = document.getElementById('videoModalFrame');
+    var originalSrc = frame.getAttribute('data-src');
+    var triggers = document.querySelectorAll('[data-open-modal]');
+    var closers = modal.querySelectorAll('[data-close-modal]');
+
+    function openModal() {
+        if (frame.src !== originalSrc) {
+            frame.src = originalSrc;
+        }
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        frame.src = 'about:blank';
+    }
+
+    triggers.forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            e.preventDefault();
+            openModal();
+        });
+    });
+
+    closers.forEach(function (el) {
+        el.addEventListener('click', function (e) {
+            e.preventDefault();
+            closeModal();
+        });
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) {
+            closeModal();
+        }
+    });
+})();
+</script>
 {% endblock %}
