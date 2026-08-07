@@ -1,8 +1,22 @@
-from flask import Flask, render_template
+import re
+import sqlite3
+
+from flask import (
+    Flask, render_template, request, redirect, session, flash,
+    url_for, get_flashed_messages,
+)
+
+from werkzeug.security import generate_password_hash
 
 from database.db import get_db, init_db, seed_db
 
 app = Flask(__name__)
+
+# Dev-only — in production this should come from an env var.
+app.secret_key = "dev-only-change-me"
+
+# Loose email-format check; HTML5 type="email" handles the user-facing nudge.
+EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
 
 # ------------------------------------------------------------------ #
@@ -22,9 +36,59 @@ def landing():
     return render_template("landing.html")
 
 
-@app.route("/register")
+def _validate_registration(name, email, password, confirm):
+    """Return None on success or a user-facing error string on failure."""
+    if not (name and email and password and confirm):
+        return "All fields are required."
+    if len(name.strip()) < 2:
+        return "Please enter your full name."
+    if not EMAIL_RE.match(email):
+        return "Please enter a valid email address."
+    if len(password) < 8:
+        return "Password must be at least 8 characters."
+    if password != confirm:
+        return "Passwords do not match."
+    return None
+
+
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    return render_template("register.html")
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        confirm = request.form.get("confirm_password") or ""
+
+        error = _validate_registration(name, email, password, confirm)
+        if error:
+            # Post/Redirect/Get: refresh after a failed POST becomes a clean GET.
+            flash(error)
+            return redirect(url_for("register"))
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            try:
+                cur.execute(
+                    "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+                    (name, email, generate_password_hash(password)),
+                )
+                conn.commit()
+                new_id = cur.lastrowid
+            except sqlite3.IntegrityError:
+                conn.rollback()
+                flash("An account with that email already exists.")
+                return redirect(url_for("register"))
+        finally:
+            conn.close()
+
+        session["user_id"] = new_id
+        session["user_name"] = name
+        return redirect("/profile")
+
+    # GET: pull any flashed error from a previous POST and surface it on the form.
+    flashed = get_flashed_messages()
+    return render_template("register.html", error=flashed[0] if flashed else None)
 
 
 @app.route("/login")
