@@ -60,6 +60,8 @@ def _validate_registration(name, email, password, confirm):
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    if _current_user():
+        return redirect("/profile")
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         email = (request.form.get("email") or "").strip().lower()
@@ -100,6 +102,8 @@ def register():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if _current_user():
+        return redirect("/profile")
     if request.method == "POST":
         email = (request.form.get("email") or "").strip().lower()
         password = request.form.get("password") or ""
