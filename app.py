@@ -6,7 +6,7 @@ from flask import (
     url_for, get_flashed_messages,
 )
 
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from database.db import get_db, init_db, seed_db
 
@@ -33,7 +33,14 @@ with app.app_context():
 
 @app.route("/")
 def landing():
+    if _current_user():
+        return redirect("/profile")
     return render_template("landing.html")
+
+
+def _current_user():
+    """Return the logged-in user's id, or None."""
+    return session.get("user_id")
 
 
 def _validate_registration(name, email, password, confirm):
@@ -91,9 +98,36 @@ def register():
     return render_template("register.html", error=flashed[0] if flashed else None)
 
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    return render_template("login.html")
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+
+        if not email or not password:
+            flash("Invalid email or password.")
+            return redirect(url_for("login"))
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            row = cur.execute(
+                "SELECT id, name, password_hash FROM users WHERE email = ?",
+                (email,),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        if row is None or not check_password_hash(row["password_hash"], password):
+            flash("Invalid email or password.")
+            return redirect(url_for("login"))
+
+        session["user_id"] = row["id"]
+        session["user_name"] = row["name"]
+        return redirect("/profile")
+
+    flashed = get_flashed_messages()
+    return render_template("login.html", error=flashed[0] if flashed else None)
 
 
 @app.route("/terms")
@@ -112,7 +146,8 @@ def privacy():
 
 @app.route("/logout")
 def logout():
-    return "Logout — coming in Step 3"
+    session.clear()
+    return redirect(url_for("login"))
 
 
 @app.route("/profile")
