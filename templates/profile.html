@@ -16,20 +16,63 @@
             </div>
         </div>
 
-        <div class="profile-card">
-            <div class="profile-stats">
-                <div class="profile-stat">
-                    <span class="profile-stat-label">Total expenses</span>
-                    <span class="profile-stat-value">{{ expense_count }}</span>
-                </div>
-                <div class="profile-stat">
-                    <span class="profile-stat-label">Total spent</span>
-                    <span class="profile-stat-value">&#8377;{{ "{:,.2f}".format(expense_total) }}</span>
-                </div>
+        <div class="profile-stats">
+            <div class="profile-stat">
+                <span class="profile-stat-label">Total expenses</span>
+                <span class="profile-stat-value">{{ expense_count }}</span>
             </div>
-            <div class="profile-actions">
-                <a href="{{ url_for('logout') }}" class="btn-submit profile-signout">Sign out</a>
+            <div class="profile-stat">
+                <span class="profile-stat-label">Total spent</span>
+                <span class="profile-stat-value">&#8377;{{ "{:,.2f}".format(total_spent) }}</span>
             </div>
+            <div class="profile-stat">
+                <span class="profile-stat-label">Top category</span>
+                <span class="profile-stat-value">{{ top_category or '—' }}</span>
+                <span class="profile-stat-note">&#8377;{{ "{:,.2f}".format(top_category_amount) }} spent</span>
+            </div>
+        </div>
+
+        <div class="profile-grid">
+
+            <div class="profile-recent">
+                <h2 class="profile-section-title">Recent transactions</h2>
+                {% if recent_transactions %}
+                <table class="profile-recent-table">
+                    <tbody>
+                    {% for row in recent_transactions %}
+                        <tr>
+                            <td class="profile-recent-date">{{ row.date_display }}</td>
+                            <td class="profile-recent-amount">&#8377;{{ "{:,.2f}".format(row.amount) }}</td>
+                            <td class="profile-recent-cat"><span>{{ row.category }}</span></td>
+                            <td class="profile-recent-desc">{{ row.description or '—' }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                    <p class="profile-empty">No transactions yet</p>
+                {% endif %}
+            </div>
+
+            <div class="profile-bars">
+                <h2 class="profile-section-title">Spending by category</h2>
+                {% if category_totals %}
+                    {% for row in category_totals %}
+                    <div class="profile-bar-row">
+                        <div class="profile-bar-row-top">
+                            <span class="profile-bar-label">{{ row.category }}</span>
+                            <span class="profile-bar-amount">&#8377;{{ "{:,.2f}".format(row.total) }}</span>
+                        </div>
+                        <div class="profile-bar-track">
+                            <div class="profile-bar-fill" style="width: {{ row.percentage }}%;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="profile-empty">No expenses yet</p>
+                {% endif %}
+            </div>
+
         </div>
 
     </div>

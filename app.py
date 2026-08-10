@@ -173,6 +173,34 @@ def profile():
             "FROM expenses WHERE user_id = ?",
             (user_id,),
         ).fetchone()
+
+        # Top category (None when user has zero expenses).
+        top_category_row = cur.execute(
+            "SELECT category, SUM(amount) AS total "
+            "FROM expenses WHERE user_id = ? "
+            "GROUP BY category "
+            "ORDER BY total DESC "
+            "LIMIT 1",
+            (user_id,),
+        ).fetchone()
+
+        # Recent 5 transactions (0–5 rows).
+        recent_rows = cur.execute(
+            "SELECT id, date, category, description, amount "
+            "FROM expenses WHERE user_id = ? "
+            "ORDER BY date DESC, id DESC "
+            "LIMIT 5",
+            (user_id,),
+        ).fetchall()
+
+        # Category totals, descending (empty list if no expenses).
+        category_rows = cur.execute(
+            "SELECT category, SUM(amount) AS total "
+            "FROM expenses WHERE user_id = ? "
+            "GROUP BY category "
+            "ORDER BY total DESC",
+            (user_id,),
+        ).fetchall()
     finally:
         conn.close()
 
@@ -186,6 +214,32 @@ def profile():
     created_at = user_row["created_at"]
     member_since = created_at[:10] if created_at else "Unknown"
 
+    # Pre-formatted display values for the template.
+    total_spent = stats["total"]
+    top_category = top_category_row["category"] if top_category_row else None
+    top_category_amount = top_category_row["total"] if top_category_row else 0
+
+    grand_total = sum(row["total"] for row in category_rows)
+    category_totals = [
+        {
+            "category": row["category"],
+            "total": row["total"],
+            "percentage": (row["total"] / grand_total * 100) if grand_total else 0,
+        }
+        for row in category_rows
+    ]
+
+    recent_transactions = [
+        {
+            "id": row["id"],
+            "date_display": (row["date"] or "")[:10],
+            "category": row["category"],
+            "description": row["description"] or "",
+            "amount": row["amount"],
+        }
+        for row in recent_rows
+    ]
+
     return render_template(
         "profile.html",
         name=name,
@@ -194,6 +248,11 @@ def profile():
         avatar=avatar,
         expense_count=stats["n"],
         expense_total=stats["total"],
+        total_spent=total_spent,
+        top_category=top_category,
+        top_category_amount=top_category_amount,
+        recent_transactions=recent_transactions,
+        category_totals=category_totals,
     )
 
 
