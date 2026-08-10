@@ -156,7 +156,45 @@ def logout():
 
 @app.route("/profile")
 def profile():
-    return "Profile page — coming in Step 4"
+    user_id = _current_user()
+    if user_id is None:
+        flash("Please sign in to view your profile.")
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        user_row = cur.execute(
+            "SELECT id, name, email, created_at FROM users WHERE id = ?",
+            (user_id,),
+        ).fetchone()
+        stats = cur.execute(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total "
+            "FROM expenses WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if user_row is None:
+        session.clear()
+        flash("Your account could not be found. Please sign in again.")
+        return redirect(url_for("login"))
+
+    name = user_row["name"] or ""
+    avatar = name.strip()[0].upper() if name.strip() else "?"
+    created_at = user_row["created_at"]
+    member_since = created_at[:10] if created_at else "Unknown"
+
+    return render_template(
+        "profile.html",
+        name=name,
+        email=user_row["email"],
+        member_since=member_since,
+        avatar=avatar,
+        expense_count=stats["n"],
+        expense_total=stats["total"],
+    )
 
 
 @app.route("/expenses/add")

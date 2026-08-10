@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Your profile — Spendly{% endblock %}
+
+{% block content %}
+
+<section class="profile-section">
+    <div class="profile-container">
+
+        <div class="profile-header">
+            <div class="profile-avatar" aria-hidden="true">{{ avatar }}</div>
+            <div class="profile-heading">
+                <h1 class="profile-title">Hi, {{ name }}</h1>
+                <p class="profile-subtitle">{{ email }}</p>
+                <p class="profile-meta">Member since {{ member_since }}</p>
+            </div>
+        </div>
+
+        <div class="profile-card">
+            <div class="profile-stats">
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Total expenses</span>
+                    <span class="profile-stat-value">{{ expense_count }}</span>
+                </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-label">Total spent</span>
+                    <span class="profile-stat-value">&#8377;{{ "{:,.2f}".format(expense_total) }}</span>
+                </div>
+            </div>
+            <div class="profile-actions">
+                <a href="{{ url_for('logout') }}" class="btn-submit profile-signout">Sign out</a>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}
