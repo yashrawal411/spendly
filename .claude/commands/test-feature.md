@@ -10,7 +10,7 @@ If no argument is provided, stop immediately and say:
 "Please provide a spec name. Usage: /test-feature 
 <spec-name> e.g. /test-feature 05-backend-connection"
 
-If `.claude/specs/$ARGUMENTS.md` does not exist, stop 
+If `./.claude/specs/$ARGUMENTS.md` does not exist, stop 
 immediately and say:
 "Spec file not found at .claude/specs/$ARGUMENTS.md. 
 Please check the spec name and try again."

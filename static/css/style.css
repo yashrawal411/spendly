@@ -979,3 +979,94 @@ a { color: inherit; text-decoration: none; }
     .profile-recent-cat { grid-area: cat; width: auto; }
     .profile-recent-desc { grid-area: desc; white-space: normal; max-width: none; }
 }
+
+/* Profile Filter */
+.profile-filter {
+    background: var(--paper-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+}
+
+.profile-filter-presets {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.profile-chip {
+    display: inline-block;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--ink-soft);
+    background: transparent;
+    font-size: 0.85rem;
+    font-family: var(--font-body);
+    text-decoration: none;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.profile-chip:hover {
+    border-color: var(--ink-muted);
+    color: var(--ink);
+}
+
+.profile-chip.is-active {
+    background: var(--accent-light);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.profile-filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.profile-filter-range {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+}
+
+.profile-filter-range input[type="date"] {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    color: var(--ink);
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--paper-card);
+}
+
+.profile-filter-apply {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--paper-card);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    align-self: flex-end;
+}
+
+.profile-filter-apply:hover {
+    background: var(--ink-soft);
+    border-color: var(--ink-soft);
+}
+
+.profile-filter-active {
+    flex-basis: 100%;
+    font-size: 0.8rem;
+    color: var(--ink-muted);
+    margin: 0;
+}

@@ -1,5 +1,6 @@
 import re
 import sqlite3
+from datetime import date, datetime
 
 from flask import (
     Flask, render_template, request, redirect, session, flash,
@@ -161,6 +162,33 @@ def profile():
         flash("Please sign in to view your profile.")
         return redirect(url_for("login"))
 
+    # --- Date-range filter (step 05) --------------------------------------
+    # Read & validate ?from=YYYY-MM-DD&to=YYYY-MM-DD. Empty / missing values
+    # fall back to "all time" wide bounds. Inclusive on both ends (BETWEEN).
+    # NOTE: validation runs *inside* the authenticated branch to keep the
+    # not-logged-in / stale-session flows untouched.
+    filter_from_raw = (request.args.get("from") or "").strip()
+    filter_to_raw = (request.args.get("to") or "").strip()
+    DATE_FMT = "%Y-%m-%d"
+    DEFAULT_FROM = "0000-01-01"
+    DEFAULT_TO = "9999-12-31"
+
+    try:
+        if filter_from_raw:
+            datetime.strptime(filter_from_raw, DATE_FMT)
+        if filter_to_raw:
+            datetime.strptime(filter_to_raw, DATE_FMT)
+    except ValueError:
+        flash("Please enter valid dates (YYYY-MM-DD).")
+        return redirect(url_for("profile"))
+
+    filter_from = filter_from_raw or DEFAULT_FROM
+    filter_to = filter_to_raw or DEFAULT_TO
+
+    if filter_from > filter_to:  # string compare works on YYYY-MM-DD
+        flash("Please enter valid dates (YYYY-MM-DD).")
+        return redirect(url_for("profile"))
+
     conn = get_db()
     try:
         cur = conn.cursor()
@@ -168,38 +196,40 @@ def profile():
             "SELECT id, name, email, created_at FROM users WHERE id = ?",
             (user_id,),
         ).fetchone()
+        # YYYY-MM-DD strings sort lexicographically == chronologically, so
+        # BETWEEN ? AND ? is correct (and inclusive on both ends).
         stats = cur.execute(
             "SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total "
-            "FROM expenses WHERE user_id = ?",
-            (user_id,),
+            "FROM expenses WHERE user_id = ? AND date BETWEEN ? AND ?",
+            (user_id, filter_from, filter_to),
         ).fetchone()
 
-        # Top category (None when user has zero expenses).
+        # Top category (None when user has zero expenses in the range).
         top_category_row = cur.execute(
             "SELECT category, SUM(amount) AS total "
-            "FROM expenses WHERE user_id = ? "
+            "FROM expenses WHERE user_id = ? AND date BETWEEN ? AND ? "
             "GROUP BY category "
             "ORDER BY total DESC "
             "LIMIT 1",
-            (user_id,),
+            (user_id, filter_from, filter_to),
         ).fetchone()
 
-        # Recent 5 transactions (0–5 rows).
+        # Recent 5 transactions (0–5 rows) within the range.
         recent_rows = cur.execute(
             "SELECT id, date, category, description, amount "
-            "FROM expenses WHERE user_id = ? "
+            "FROM expenses WHERE user_id = ? AND date BETWEEN ? AND ? "
             "ORDER BY date DESC, id DESC "
             "LIMIT 5",
-            (user_id,),
+            (user_id, filter_from, filter_to),
         ).fetchall()
 
-        # Category totals, descending (empty list if no expenses).
+        # Category totals, descending (empty list if no expenses in range).
         category_rows = cur.execute(
             "SELECT category, SUM(amount) AS total "
-            "FROM expenses WHERE user_id = ? "
+            "FROM expenses WHERE user_id = ? AND date BETWEEN ? AND ? "
             "GROUP BY category "
             "ORDER BY total DESC",
-            (user_id,),
+            (user_id, filter_from, filter_to),
         ).fetchall()
     finally:
         conn.close()
@@ -240,6 +270,17 @@ def profile():
         for row in recent_rows
     ]
 
+    # --- Filter UI state (step 05) ----------------------------------------
+    today = date.today()
+    this_month_from = today.replace(day=1).isoformat()  # YYYY-MM-01
+    this_month_to = today.isoformat()                   # YYYY-MM-DD
+    this_month_url = f"/profile?from={this_month_from}&to={this_month_to}"
+    all_time_url = "/profile"
+    is_all_time = filter_from == DEFAULT_FROM and filter_to == DEFAULT_TO
+    is_this_month = (
+        filter_from == this_month_from and filter_to == this_month_to
+    )
+
     return render_template(
         "profile.html",
         name=name,
@@ -253,6 +294,12 @@ def profile():
         top_category_amount=top_category_amount,
         recent_transactions=recent_transactions,
         category_totals=category_totals,
+        filter_from=filter_from,
+        filter_to=filter_to,
+        this_month_url=this_month_url,
+        all_time_url=all_time_url,
+        is_all_time=is_all_time,
+        is_this_month=is_this_month,
     )
 
 
