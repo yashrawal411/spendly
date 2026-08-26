@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}Expenses — Spendly{% endblock %}
+
+{% block content %}
+
+<section class="expenses-section">
+    <div class="expenses-container">
+
+        <header class="expenses-header">
+            <h1 class="expenses-title">Expenses</h1>
+            <p class="expenses-subtitle">Hi, {{ name }} — manage every rupee you spend.</p>
+        </header>
+
+        <div class="expenses-top-category">
+            <span class="expenses-top-label">Top category</span>
+            <span class="expenses-top-value">{{ top_category or '—' }}</span>
+            <span class="expenses-top-note">&#8377;{{ "{:,.2f}".format(top_category_amount) }} spent</span>
+        </div>
+
+        <div class="profile-filter">
+            <div class="profile-filter-presets">
+                <a href="{{ all_time_url }}"
+                   class="profile-chip {% if is_all_time %}is-active{% endif %}">All time</a>
+                <a href="{{ this_month_url }}"
+                   class="profile-chip {% if is_this_month %}is-active{% endif %}">This month</a>
+            </div>
+
+            <form method="get" action="/expenses" class="profile-filter-form">
+                <label class="profile-filter-range">
+                    <span>From</span>
+                    <input type="date" name="from"
+                           value="{{ filter_from if filter_from != '0000-01-01' else '' }}">
+                </label>
+                <label class="profile-filter-range">
+                    <span>To</span>
+                    <input type="date" name="to"
+                           value="{{ filter_to if filter_to != '9999-12-31' else '' }}">
+                </label>
+                <button type="submit" class="profile-filter-apply">Apply</button>
+            </form>
+
+            {% if not is_all_time %}
+            <p class="profile-filter-active">
+                Active: {{ filter_from }} → {{ filter_to }}
+            </p>
+            {% endif %}
+        </div>
+
+        <form method="post" action="{{ url_for('add_expense') }}" class="expenses-add-form">
+            {% with msgs = get_flashed_messages(with_categories=True) %}
+            {% if msgs %}
+            <p class="expenses-flash {% if msgs[0][0] == 'success' %}expenses-flash-success{% else %}expenses-flash-error{% endif %}">{{ msgs[0][1] }}</p>
+            {% endif %}
+            {% endwith %}
+
+            <div class="expenses-form-row">
+                <label class="expenses-form-field">
+                    <span>Amount (&#8377;)</span>
+                    <input type="number" name="amount" step="0.01" min="0.01" required
+                           value="{{ form_amount }}">
+                </label>
+                <label class="expenses-form-field">
+                    <span>Category</span>
+                    <select name="category" required>
+                        {% for cat in categories %}
+                        <option value="{{ cat }}" {% if cat == form_category %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="expenses-form-field">
+                    <span>Date</span>
+                    <input type="date" name="date" required value="{{ form_date }}">
+                </label>
+                <label class="expenses-form-field expenses-form-field-grow">
+                    <span>Description (optional)</span>
+                    <input type="text" name="description" maxlength="200"
+                           value="{{ form_description }}">
+                </label>
+                <div class="expenses-form-actions">
+                    <button type="submit" class="expenses-add-submit">Add expense</button>
+                </div>
+            </div>
+        </form>
+
+        {% if expenses %}
+        <table class="expenses-list-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th class="expenses-row-amount-head">Amount</th>
+                    <th class="expenses-row-actions-head">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in expenses %}
+                {% if edit_row and edit_row['id'] == row.id %}
+                <tr class="expenses-row-editing">
+                    <td colspan="5">
+                        <form method="post"
+                              action="{{ url_for('edit_expense', id=row.id) }}"
+                              class="expenses-row-edit-form">
+                            <div class="expenses-form-row">
+                                <label class="expenses-form-field">
+                                    <span>Amount (&#8377;)</span>
+                                    <input type="number" name="amount" step="0.01" min="0.01" required
+                                           value="{{ request.args.get('amount') or edit_row['amount'] }}">
+                                </label>
+                                <label class="expenses-form-field">
+                                    <span>Category</span>
+                                    <select name="category" required>
+                                        {% for cat in categories %}
+                                        <option value="{{ cat }}"
+                                                {% if cat == (request.args.get('category') or edit_row['category']) %}selected{% endif %}>
+                                            {{ cat }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </label>
+                                <label class="expenses-form-field">
+                                    <span>Date</span>
+                                    <input type="date" name="date" required
+                                           value="{{ request.args.get('date') or edit_row['date'] }}">
+                                </label>
+                                <label class="expenses-form-field expenses-form-field-grow">
+                                    <span>Description (optional)</span>
+                                    <input type="text" name="description" maxlength="200"
+                                           value="{{ request.args.get('description') if request.args.get('description') is not none else (edit_row['description'] or '') }}">
+                                </label>
+                                <div class="expenses-form-actions">
+                                    <button type="submit" class="expenses-edit-save">Save</button>
+                                    <a href="{{ url_for('expenses') }}" class="expenses-cancel-link">Cancel</a>
+                                </div>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="expenses-row-date">{{ row.date_display }}</td>
+                    <td class="expenses-row-cat"><span>{{ row.category }}</span></td>
+                    <td class="expenses-row-desc">{{ row.description or '—' }}</td>
+                    <td class="expenses-row-amount">&#8377;{{ "{:,.2f}".format(row.amount) }}</td>
+                    <td class="expenses-row-actions">
+                        <a href="{{ url_for('expenses', edit=row.id) }}"
+                           class="expenses-row-edit">Edit</a>
+                        <form method="post"
+                              action="{{ url_for('delete_expense', id=row.id) }}"
+                              class="expenses-row-delete-form">
+                            <button type="submit" class="expenses-row-delete">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="profile-empty">No expenses yet. Use the form above to add one.</p>
+        {% endif %}
+
+        {% if total_pages > 1 %}
+        <nav class="expenses-pagination" aria-label="Expense pages">
+            <span class="expenses-pagination-summary">
+                Showing {{ page_from }}–{{ page_to }} of {{ total_count }}
+            </span>
+            <div class="expenses-pagination-controls">
+                {% if has_prev %}
+                <a href="{{ prev_url }}" class="expenses-pagination-link">&larr; Previous</a>
+                {% else %}
+                <span class="expenses-pagination-link is-disabled">&larr; Previous</span>
+                {% endif %}
+                <span class="expenses-pagination-page">Page {{ page }} of {{ total_pages }}</span>
+                {% if has_next %}
+                <a href="{{ next_url }}" class="expenses-pagination-link">Next &rarr;</a>
+                {% else %}
+                <span class="expenses-pagination-link is-disabled">Next &rarr;</span>
+                {% endif %}
+            </div>
+        </nav>
+        {% endif %}
+
+    </div>
+</section>
+
+<!-- Custom delete confirmation modal (vanilla JS, no build step) -->
+<div class="expenses-modal-backdrop"
+     id="expenses-delete-modal"
+     data-open-modal="false"
+     aria-hidden="true">
+    <div class="expenses-modal" role="dialog" aria-modal="true" aria-labelledby="expenses-delete-modal-title">
+        <h3 class="expenses-modal-title" id="expenses-delete-modal-title">Delete this expense?</h3>
+        <p class="expenses-modal-body">This action cannot be undone.</p>
+        <div class="expenses-modal-actions">
+            <button type="button"
+                    class="expenses-modal-cancel"
+                    data-close-modal>Cancel</button>
+            <button type="button"
+                    class="expenses-modal-confirm"
+                    data-close-modal>Delete</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        // --- 1. Auto-scroll to the editing row on page load ---------------
+        var editRow = document.querySelector('.expenses-row-editing');
+        if (editRow) {
+            editRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // --- 2. Custom delete confirmation modal --------------------------
+        var modal = document.getElementById('expenses-delete-modal');
+        var pendingForm = null;  // form to submit on confirm
+        var cancelBtn = modal ? modal.querySelector('.expenses-modal-cancel') : null;
+        var confirmBtn = modal ? modal.querySelector('.expenses-modal-confirm') : null;
+
+        function openModal(form) {
+            pendingForm = form;
+            modal.dataset.openModal = 'true';
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            confirmBtn.focus();
+        }
+
+        function closeModal() {
+            modal.dataset.openModal = 'false';
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+            pendingForm = null;
+        }
+
+        // Intercept every delete form's submit and route through the modal.
+        document.querySelectorAll('.expenses-row-delete-form').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                event.preventDefault();
+                openModal(form);
+            });
+        });
+
+        // Backdrop click closes the modal.
+        if (modal) {
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', closeModal);
+        }
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', function () {
+                var form = pendingForm;
+                closeModal();
+                if (form) {
+                    form.submit();
+                }
+            });
+        }
+
+        // Escape key closes the modal.
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && modal && modal.dataset.openModal === 'true') {
+                closeModal();
+            }
+        });
+    })();
+</script>
+{% endblock %}

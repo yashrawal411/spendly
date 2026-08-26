@@ -16,35 +16,6 @@
             </div>
         </div>
 
-        <div class="profile-filter">
-            <div class="profile-filter-presets">
-                <a href="{{ all_time_url }}"
-                   class="profile-chip {% if is_all_time %}is-active{% endif %}">All time</a>
-                <a href="{{ this_month_url }}"
-                   class="profile-chip {% if is_this_month %}is-active{% endif %}">This month</a>
-            </div>
-
-            <form method="get" action="/profile" class="profile-filter-form">
-                <label class="profile-filter-range">
-                    <span>From</span>
-                    <input type="date" name="from"
-                           value="{{ filter_from if filter_from != '0000-01-01' else '' }}">
-                </label>
-                <label class="profile-filter-range">
-                    <span>To</span>
-                    <input type="date" name="to"
-                           value="{{ filter_to if filter_to != '9999-12-31' else '' }}">
-                </label>
-                <button type="submit" class="profile-filter-apply">Apply</button>
-            </form>
-
-            {% if not is_all_time %}
-            <p class="profile-filter-active">
-                Active: {{ filter_from }} → {{ filter_to }}
-            </p>
-            {% endif %}
-        </div>
-
         <div class="profile-stats">
             <div class="profile-stat">
                 <span class="profile-stat-label">Total expenses</span>
