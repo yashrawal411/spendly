@@ -25,10 +25,14 @@ def get_db() -> sqlite3.Connection:
 
     - row_factory = sqlite3.Row so callers can use dict-like access
     - PRAGMA foreign_keys = ON so FK constraints are enforced
+    - PRAGMA busy_timeout = 5000 so writers wait briefly instead of
+      failing immediately when the DB is locked (e.g. by another
+      concurrent request mid-transaction)
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=5)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
@@ -71,7 +75,13 @@ def init_db() -> None:
 
 
 def seed_db() -> None:
-    """Insert demo data. Idempotent — no-op once the demo user exists."""
+    """Insert demo data. Idempotent — no-op once the demo user exists.
+
+    Race-safe: under gunicorn's pre-fork model, multiple workers can
+    call this at boot simultaneously. We use INSERT OR IGNORE so the
+    loser of the race against the UNIQUE(email) constraint returns
+    silently instead of crashing the worker.
+    """
     conn = get_db()
     try:
         cur = conn.cursor()
@@ -81,14 +91,21 @@ def seed_db() -> None:
             return
 
         # --- demo user (password = "demo123", hashed via werkzeug) -------
+        # INSERT OR IGNORE: if a concurrent worker beat us to it, the
+        # UNIQUE(email) violation becomes a silent no-op instead of an
+        # IntegrityError that kills the worker.
         cur.execute(
-            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO users (name, email, password_hash) "
+            "VALUES (?, ?, ?)",
             (
                 "Demo User",
                 "demo@spendly.com",
                 generate_password_hash("demo123"),
             ),
         )
+        if cur.rowcount == 0:
+            # Another worker seeded the demo user; nothing more to do.
+            return
         demo_id = cur.lastrowid
 
         # --- 8 sample expenses, one per category (7) + one extra Food ----

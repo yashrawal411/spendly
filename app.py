@@ -1,4 +1,6 @@
+import os
 import re
+import secrets
 import sqlite3
 from datetime import date, datetime
 
@@ -13,8 +15,21 @@ from database.db import get_db, init_db, seed_db
 
 app = Flask(__name__)
 
-# Dev-only — in production this should come from an env var.
-app.secret_key = "dev-only-change-me"
+# Secret key: REQUIRE an env var in production so sessions survive restarts.
+# A fresh random key per process silently logs every user out on each
+# deploy/worker-recycle, which is hard to debug. Local dev still works
+# without setup (FLASK_ENV=development gets a per-run random key).
+_secret_key = os.environ.get("SECRET_KEY")
+if not _secret_key:
+    if os.environ.get("FLASK_ENV") == "development":
+        _secret_key = secrets.token_hex(32)  # OK for local dev only
+    else:
+        raise RuntimeError(
+            "SECRET_KEY is not set. Set it in your environment "
+            "(e.g. `railway variables set SECRET_KEY=...`) — sessions "
+            "won't survive restarts without it."
+        )
+app.secret_key = _secret_key
 
 # Loose email-format check; HTML5 type="email" handles the user-facing nudge.
 EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
@@ -583,4 +598,6 @@ def delete_expense(id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    # Local dev only — Railway runs gunicorn via the Procfile.
+    port = int(os.environ.get("PORT", "5001"))
+    app.run(host="0.0.0.0", port=port, debug=False)
