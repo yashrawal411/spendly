@@ -1,6 +1,6 @@
 ---
 description: Create a spec file and feature branch for the next Spendly step
-argument-hint: "Step number and feature name e.g. 2 registration"
+argument-hint: "Step number and feature name e.g. 2 registration and feature description ="
 allowed-tools: Read, Write, Glob, Bash(git:*)
 ---
 
@@ -23,6 +23,9 @@ From $ARGUMENTS extract:
 2. `feature_title` — human readable title in Title Case
    - Example: "Registration" or "Login and Logout"
 
+3. `feature_description` — description of the feature from the user
+   - Example: "implement registration feature with mobile number and password"
+ 
 3. `feature_slug` — git and file safe slug
    - Lowercase, kebab-case
    - Only a-z, 0-9 and -
