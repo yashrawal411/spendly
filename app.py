@@ -19,6 +19,13 @@ app.secret_key = "dev-only-change-me"
 # Loose email-format check; HTML5 type="email" handles the user-facing nudge.
 EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
+# Categories the user can pick when adding an expense. Single source of truth
+# for both the standalone form and the profile-page quick-add card.
+EXPENSE_CATEGORIES = (
+    "Food", "Transport", "Shopping", "Bills",
+    "Entertainment", "Health", "Other",
+)
+
 
 # ------------------------------------------------------------------ #
 # Database bootstrap — runs once on app startup                      #
@@ -300,12 +307,123 @@ def profile():
         all_time_url=all_time_url,
         is_all_time=is_all_time,
         is_this_month=is_this_month,
+        EXPENSE_CATEGORIES=EXPENSE_CATEGORIES,
+        today=date.today().isoformat(),
     )
 
 
-@app.route("/expenses/add")
+def _safe_next_url(raw_next):
+    """Return raw_next only if it points at /profile; else fall back to /profile.
+
+    Rejects absolute URLs, scheme-relative URLs (//evil.example), and anything
+    not starting with a single leading slash followed by 'profile'. The open-
+    redirect defence is deliberately strict — we'd rather send the user back
+    to /profile than to an attacker-controlled URL.
+    """
+    if not raw_next:
+        return "/profile"
+    if not raw_next.startswith("/profile"):
+        return "/profile"
+    return raw_next
+
+
+def _validate_expense_form(amount_raw, category_raw, date_raw, description_raw):
+    """Return None on success or a user-facing error string on failure.
+
+    Mirrors the shape of _validate_registration: first error wins, plain
+    strings, no exceptions leak to the caller.
+    """
+    if not amount_raw:
+        return "Enter a valid amount greater than zero."
+    try:
+        amount = float(amount_raw)
+    except ValueError:
+        return "Enter a valid amount greater than zero."
+    if amount <= 0:
+        return "Enter a valid amount greater than zero."
+    # 12 digits before the decimal is a sanity cap (prevents 1e308 shenanigans).
+    if len(amount_raw.split(".")[0]) > 12:
+        return "Enter a valid amount greater than zero."
+
+    if category_raw not in EXPENSE_CATEGORIES:
+        return "Choose a category."
+
+    try:
+        datetime.strptime(date_raw, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return "Enter a valid date (YYYY-MM-DD)."
+
+    return None
+
+
+@app.route("/expenses/add", methods=["GET", "POST"])
 def add_expense():
-    return "Add expense — coming in Step 7"
+    user_id = _current_user()
+    if user_id is None:
+        flash("Please sign in to add an expense.")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        amount_raw = (request.form.get("amount") or "").strip()
+        category_raw = (request.form.get("category") or "").strip()
+        date_raw = (request.form.get("date") or "").strip()
+        description_raw = (request.form.get("description") or "").strip()
+        next_url = _safe_next_url(request.form.get("next"))
+
+        error = _validate_expense_form(
+            amount_raw, category_raw, date_raw, description_raw,
+        )
+        if error:
+            # PRG: round-trip the form values back through the query string so
+            # a validation failure preserves what the user typed. The GET branch
+            # reads them back via request.args.
+            flash(error)
+            return redirect(url_for("add_expense", **{
+                "amount": amount_raw,
+                "category": category_raw,
+                "date": date_raw,
+                "description": description_raw,
+                "next": next_url,
+            }))
+
+        amount = float(amount_raw)
+        description = description_raw[:200]
+
+        conn = get_db()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO expenses (user_id, amount, category, date, description) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (user_id, amount, category_raw, date_raw, description),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            flash("Could not save your expense. Please try again.")
+            return redirect(url_for("add_expense", next=next_url))
+        finally:
+            conn.close()
+
+        return redirect(next_url)
+
+    # GET: pull any flashed error from a previous POST; echo the query-string
+    # form values back so a round-trip after a validation failure preserves
+    # what the user typed.
+    flashed = get_flashed_messages()
+    today = date.today().isoformat()
+    next_url = _safe_next_url(request.args.get("next"))
+    return render_template(
+        "add_expense.html",
+        error=flashed[0] if flashed else None,
+        today=today,
+        categories=EXPENSE_CATEGORIES,
+        selected_category=request.args.get("category") or "Other",
+        amount=request.args.get("amount") or "",
+        date=request.args.get("date") or today,
+        description=request.args.get("description") or "",
+        next_url=next_url,
+    )
 
 
 @app.route("/expenses/<int:id>/edit")

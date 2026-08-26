@@ -16,6 +16,33 @@
             </div>
         </div>
 
+        <div class="profile-add-expense">
+            <header class="profile-add-expense-header">
+                <h2 class="profile-add-expense-title">Add an expense</h2>
+                <p class="profile-add-expense-subtitle">Quick add — opens the full form.</p>
+            </header>
+            <form method="get" action="/expenses/add" class="profile-add-expense-form">
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <label class="profile-add-expense-field">
+                    <span>Amount (&#8377;)</span>
+                    <input type="number" name="amount" step="0.01" min="0.01" required>
+                </label>
+                <label class="profile-add-expense-field">
+                    <span>Category</span>
+                    <select name="category">
+                        {% for cat in EXPENSE_CATEGORIES %}
+                        <option value="{{ cat }}" {% if cat == 'Other' %}selected{% endif %}>{{ cat }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="profile-add-expense-field">
+                    <span>Date</span>
+                    <input type="date" name="date" required value="{{ today }}">
+                </label>
+                <button type="submit" class="profile-add-expense-submit">Add expense</button>
+            </form>
+        </div>
+
         <div class="profile-filter">
             <div class="profile-filter-presets">
                 <a href="{{ all_time_url }}"
